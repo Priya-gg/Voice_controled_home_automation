@@ -1,0 +1,156 @@
+#include <ArduinoWiFiServer.h>
+#include <BearSSLHelpers.h>
+#include <CertStoreBearSSL.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266WiFiAP.h>
+#include <ESP8266WiFiGeneric.h>
+#include <ESP8266WiFiGratuitous.h>
+#include <ESP8266WiFiMulti.h>
+#include <ESP8266WiFiScan.h>
+#include <ESP8266WiFiSTA.h>
+#include <ESP8266WiFiType.h>
+#include <WiFiClient.h>
+#include <WiFiClientSecure.h>
+#include <WiFiClientSecureBearSSL.h>
+#include <WiFiServer.h>
+#include <WiFiServerSecure.h>
+#include <WiFiServerSecureBearSSL.h>
+#include <WiFiUdp.h>
+
+#define sw1 13
+#define sw2 12
+#define sw3 14
+#define sw4 16
+#define rel1 4
+#define rel2 5
+#define rel3 9
+#define rel4 10
+#define BLYNK_PRINT Serial
+
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+char auth[] = "cK16CURTFdK-kqO1giMhsQgPdh7Xew_c"; //get from blynk application
+char ssid[] = "sravan";
+char pass[] = "qwertypoiu";
+//http://188.166.206.43/cK16CURTFdK-kqO1giMhsQgPdh7Xew_c/update/V1?value=0 //use D4,D5,V1 and V2
+ boolean crnt_state[] = {0,0,0,0};
+ boolean pvs_state[] = {0,0,0,0};
+ boolean relay_state[] = {0,0,0,0};
+int read_switch_toggle()
+{
+int result = 0;
+//Note all previous values
+for (int i=0; i<=3; i++)
+    pvs_state[i] =  crnt_state[i];
+//Read the current status of switchs
+crnt_state[0] = digitalRead (sw1);
+crnt_state[1] = digitalRead (sw2);
+crnt_state[2] = digitalRead (sw3);
+crnt_state[3] = digitalRead (sw4);
+//compare current and pvs state
+for (int i=0; i<=3; i++)
+{
+    if (pvs_state[i] !=  crnt_state[i])
+    {
+    result = (i+1); //if any switch is toggled we get switch number as result
+    return result;
+    }
+    else
+    result = 0; //if no change result 0
+}
+return result; //return the result
+}
+void setup() {
+//Decalre all switchs as input
+  pinMode(sw1, INPUT_PULLUP); pinMode(sw2, INPUT_PULLUP); pinMode(sw3, INPUT_PULLUP); pinMode(sw4, INPUT_PULLUP);  
+//Decalre all relays as output
+  pinMode(rel1, OUTPUT); pinMode(rel2, OUTPUT); pinMode(rel3, OUTPUT); pinMode(rel4, OUTPUT);
+//Initialize all pin to LOW
+  digitalWrite (rel1,LOW);digitalWrite (rel2,LOW);digitalWrite (rel3,LOW);digitalWrite (rel4,LOW);
+  Serial.begin(9600);
+  Blynk.begin(auth, ssid, pass);
+}
+//Control relay usinf Blynk Virtual Pins
+ BLYNK_WRITE(V1)
+{
+  digitalWrite(rel1,param.asInt());
+  Serial.println("V1");
+}
+BLYNK_WRITE(V2)
+{
+  digitalWrite(rel2,param.asInt());
+  Serial.println("V2");
+}
+BLYNK_WRITE(V3)
+{
+  digitalWrite(rel3,param.asInt());
+  Serial.println("V3");
+}
+BLYNK_WRITE(V4)
+{
+  digitalWrite(rel4,param.asInt());
+  Serial.println("V4");
+}
+BLYNK_WRITE(V5)
+{
+  String ON_message = param.asStr();
+  Serial.println (ON_message);
+    if(ON_message.indexOf("lamp") >= 0)
+    digitalWrite(rel1,HIGH);
+  if(ON_message.indexOf("LED") >= 0)
+    digitalWrite(rel2,HIGH);
+  if(ON_message.indexOf("music") >= 0)
+    digitalWrite(rel3,HIGH);
+  if(ON_message.indexOf("TV") >= 0)
+    digitalWrite(rel4,HIGH);
+  if(ON_message.indexOf("everything") >= 0)
+  {
+    digitalWrite(rel1,HIGH);digitalWrite(rel2,HIGH);digitalWrite(rel3,HIGH);digitalWrite(rel4,HIGH);
+  }
+}
+BLYNK_WRITE(V6)
+{
+  String OFF_message = param.asStr();
+  Serial.println (OFF_message);
+    if(OFF_message.indexOf("lamp") >= 0)
+    digitalWrite(rel1,LOW);
+  if(OFF_message.indexOf("LED") >= 0)
+    digitalWrite(rel2,LOW);
+  if(OFF_message.indexOf("music") >= 0)
+    digitalWrite(rel3,LOW);
+  if(OFF_message.indexOf("TV") >= 0)
+    digitalWrite(rel4,LOW);
+  if(OFF_message.indexOf("everything") >= 0)
+  {
+    digitalWrite(rel1,LOW);digitalWrite(rel2,LOW);digitalWrite(rel3,LOW); digitalWrite(rel4,LOW);
+  }
+}
+void loop() {
+ Blynk.run();
+int toggle_pin = read_switch_toggle();
+if (toggle_pin !=0) //if any switch toggle is detected
+{
+relay_state [(toggle_pin-1)] = !relay_state [(toggle_pin-1)]; //change the particular bit
+switch (toggle_pin) {
+    case 0:  
+      break;
+    case 1:
+      Serial.println("Toggling Relay 1");
+      digitalWrite(rel1,relay_state[toggle_pin -1]);
+      break;
+    case 2:
+      Serial.println("Toggling Relay 2");
+      digitalWrite(rel2,relay_state[toggle_pin -1]);
+      break;
+    case 3:
+      Serial.println("Toggling Relay 3");
+      digitalWrite(rel3,relay_state[toggle_pin -1]);
+      break;
+    case 4:
+      Serial.println("Toggling Relay 4");
+      digitalWrite(rel4,relay_state[toggle_pin -1]);
+      break;
+  }
+}
+//delay (500);              
+}
